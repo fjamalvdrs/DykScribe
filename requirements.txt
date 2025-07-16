@@ -2,5 +2,4 @@ streamlit
 pandas
 sqlalchemy
 openai
-pyodbc
-git+https://github.com/stefanrmmr/st_audiorec.git 
+pyodbc 
