@@ -9,7 +9,7 @@ import logging
 from utils.db import get_engine
 from utils.ai import get_openai_client
 import base64
-import datetime
+from datetime import datetime
 from streamlit_js_eval import streamlit_js_eval
 
 # --- Logging Setup ---
@@ -215,7 +215,7 @@ st.text_input("Role", value=role, disabled=True)
 st.markdown("<span style='font-size: 0.85em; color: #888;'>This field is auto-filled and cannot be changed. It is determined by your username.</span>", unsafe_allow_html=True)
 entry_datetime = st.text_input(
     "Entry Date & Time",
-    value=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    value = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     disabled=True
 )
 st.markdown("<span style='font-size: 0.85em; color: #888;'>This field is auto-filled with the current date and time and cannot be changed.</span>", unsafe_allow_html=True)
