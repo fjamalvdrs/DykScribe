@@ -9,7 +9,6 @@ import logging
 from utils.db import get_engine
 from utils.ai import get_openai_client
 import base64
-import datetime
 from streamlit_js_eval import streamlit_js_eval
 
 # --- Logging Setup ---
@@ -364,7 +363,7 @@ if audio_base64:
     st.success("Recording complete!")
     audio_bytes = base64.b64decode(audio_base64)
     st.audio(audio_bytes, format="audio/webm")
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"recording_{timestamp}.webm"
     st.download_button("Download Recording", data=audio_bytes, file_name=file_name)
 
