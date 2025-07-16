@@ -3,4 +3,4 @@ pandas
 sqlalchemy
 openai
 pyodbc
-st-audiorec 
+git+https://github.com/stefanrmmr/st_audiorec.git 
