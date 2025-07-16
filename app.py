@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from st_audiorec import st_audiorec
 import tempfile
 import os
 import zipfile
@@ -9,6 +8,9 @@ import re
 import logging
 from utils.db import get_engine
 from utils.ai import get_openai_client
+import base64
+import datetime
+from streamlit_js_eval import streamlit_js_eval
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
@@ -292,88 +294,97 @@ else:
 st.caption("Enter any additional notes or comments about this submission. This can include context, issues, or anything relevant.")
 notes = st.text_area("Remark or Additional Info")
 
-# --- Unified Audio Block (Fully Grouped) ---
-with st.container():
-    st.markdown("""
-    <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5em 0 0 0;'>
-        <h6 style='margin-bottom: 0.3em; text-align: center; font-weight: 600; font-size: 1.05em;'>Audio Response</h6>
-        <p style='font-size: 0.88em; color: #aaa; text-align: center; margin-bottom: 0.7em;'>Click the mic to record, or upload a file below. Uploaded file takes priority.</p>
-        <div style='width: 100%; display: flex; flex-direction: column; align-items: center;'>
-    """, unsafe_allow_html=True)
+# --- Audio Recording Section ---
+st.markdown("<h5 style='margin-bottom: 0.3em; text-align: center; font-weight: 600;'>Audio Response</h5>", unsafe_allow_html=True)
+st.markdown("<p style='font-size: 0.88em; color: #aaa; text-align: center; margin-bottom: 0.7em;'>Record using the mic below, or upload a file. Download your recording after saving.</p>", unsafe_allow_html=True)
 
-    # Minimal caption
-    audio_bytes = st_audiorec()
-    st.markdown("<span style='font-size: 0.80em; color: #888;'>Upload MP3 or WAV (max 200MB).</span>", unsafe_allow_html=True)
-    audio_file = st.file_uploader(
-        "Upload MP3/WAV",
-        type=["mp3", "wav"],
-        label_visibility="collapsed"
-    )
-    # Only show one audio player: uploaded file takes priority, else recorded audio
-    audio_to_play = None
-    if audio_file is not None:
-        file_bytes = audio_file.read()
-        if file_bytes:
-            audio_to_play = file_bytes
-    elif audio_bytes is not None:
-        audio_to_play = audio_bytes
-    if audio_to_play is not None:
-        st.audio(audio_to_play, format="audio/wav")
+# Embed HTML + JS for audio recorder
+recorder_js = """
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let stream;
 
-    st.markdown("<div style='margin: 0.3em 0; text-align: center; color: #888; font-size: 0.85em;'>or</div>", unsafe_allow_html=True)
+function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+        stream = s;
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
 
-    st.markdown("""
-        </div>
-    </div>
-    <style>
-    section[data-testid="stFileUploader"] {
-        margin-left: auto !important;
-        margin-right: auto !important;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background: none !important;
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 !important;
-        max-width: 320px !important;
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            blob.arrayBuffer().then(buffer => {
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+                const event = new CustomEvent("streamlit:audio_data", { detail: base64 });
+                window.dispatchEvent(event);
+            });
+        };
+
+        mediaRecorder.start();
+    });
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        stream.getTracks().forEach(track => track.stop());
     }
-    section[data-testid="stAudio"] {
-        margin-left: auto !important;
-        margin-right: auto !important;
-        display: flex;
-        justify-content: center;
-        background: none !important;
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 !important;
-        max-width: 320px !important;
-    }
-    /* Make st_audiorec buttons smaller */
-    button, .stButton > button {
-        font-size: 0.92em !important;
-        padding: 0.25em 0.8em !important;
-        min-width: 70px !important;
-        min-height: 28px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+}
 
-# --- Custom Loading Video Path ---
-# loading_video_path = "Loading_Symbol_Video_Generated.mp4"  # No longer needed
+window.addEventListener("streamlit:audio_recorder", function(event) {
+    if (event.detail === "start") {
+        startRecording();
+    } else if (event.detail === "stop") {
+        stopRecording();
+    }
+});
+</script>
+"""
+st.components.v1.html(recorder_js)
 
-# --- Grey Out UI if Processing (No Stop) ---
-if 'processing' not in st.session_state:
-    st.session_state['processing'] = False
-if st.session_state.get('processing', False):
-    st.markdown('''
-        <div id="greyout-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 9998;"></div>
-        <style>body { overflow: hidden !important; }</style>
-    ''', unsafe_allow_html=True)
+col1, col2 = st.columns(2)
+with col1:
+    record = st.button("Start Recording 🎤")
+with col2:
+    stop = st.button("Stop Recording ⏹️")
+
+if record:
+    streamlit_js_eval(js_expressions="window.dispatchEvent(new CustomEvent('streamlit:audio_recorder', { detail: 'start' }))", key="start_rec")
+if stop:
+    streamlit_js_eval(js_expressions="window.dispatchEvent(new CustomEvent('streamlit:audio_recorder', { detail: 'stop' }))", key="stop_rec")
+
+audio_base64 = streamlit_js_eval(
+    js_expressions="await new Promise(resolve => { window.addEventListener('streamlit:audio_data', e => resolve(e.detail), { once: true }); })",
+    key="recv_audio"
+)
+
+audio_bytes = None
+if audio_base64:
+    st.success("Recording complete!")
+    audio_bytes = base64.b64decode(audio_base64)
+    st.audio(audio_bytes, format="audio/webm")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_name = f"recording_{timestamp}.webm"
+    st.download_button("Download Recording", data=audio_bytes, file_name=file_name)
+
+# Fallback: allow upload as well
+st.markdown("<span style='font-size: 0.80em; color: #888;'>Or upload MP3 or WAV (max 200MB).</span>", unsafe_allow_html=True)
+audio_file = st.file_uploader(
+    "Upload MP3/WAV",
+    type=["mp3", "wav"],
+    label_visibility="collapsed"
+)
+file_bytes = None
+if audio_file is not None:
+    file_bytes = audio_file.read()
+    if file_bytes:
+        st.audio(file_bytes, format="audio/wav")
+
+# --- Unified audio handling for submission ---
+audio_ready = (audio_bytes is not None) or (file_bytes is not None)
 
 # --- Submit and Save ---
-audio_ready = (audio_bytes is not None) or (audio_file is not None)
-
 if audio_ready:
     transcribe_btn = st.button(
         "Transcribe and Calculate Points",
@@ -381,10 +392,8 @@ if audio_ready:
     )
     if transcribe_btn:
         st.session_state['processing'] = True
-        # st.experimental_rerun()  # REMOVED
 
     if st.session_state['processing'] and not st.session_state.get('transcribed', False):
-        # Only run processing if not already done
         with st.spinner("Processing, please wait..."):
             with tempfile.TemporaryDirectory() as tmpdir:
                 # Save form inputs
@@ -407,13 +416,12 @@ if audio_ready:
                 audio_path = None
                 audio_bytes_to_save = None
                 if audio_bytes is not None:
-                    audio_path = os.path.join(tmpdir, "audio.wav")
+                    audio_path = os.path.join(tmpdir, "audio.webm")
                     with open(audio_path, "wb") as f:
                         f.write(audio_bytes)
                     audio_bytes_to_save = audio_bytes
-                elif audio_file:
+                elif file_bytes is not None:
                     audio_path = os.path.join(tmpdir, audio_file.name)
-                    file_bytes = audio_file.read()
                     with open(audio_path, "wb") as f:
                         f.write(file_bytes)
                     audio_bytes_to_save = file_bytes
@@ -426,7 +434,6 @@ if audio_ready:
                 # Transcribe audio using new OpenAI API
                 try:
                     with st.spinner("Transcribing audio with Whisper..."):
-                        # st.video(loading_video_path)  # Overlay now handles loading video
                         with open(audio_path, "rb") as f:
                             transcript = client.audio.transcriptions.create(
                                 model="whisper-1",
@@ -445,7 +452,6 @@ if audio_ready:
 
                 # Format transcript as Q&A using ChatGPT
                 with st.spinner("Formatting transcript as Q&A with ChatGPT..."):
-                    # st.video(loading_video_path)  # Overlay now handles loading video
                     qa_text = format_transcript_as_qa(transcript, client)
                 qa_text = st.text_area("Q&A Transcript (editable)", qa_text, height=300)
                 qa_path = os.path.join(tmpdir, "qa_transcript.txt")
@@ -476,7 +482,6 @@ if audio_ready:
                 st.session_state["audio_bytes_to_save"] = audio_bytes_to_save
                 st.session_state['transcribed'] = True
                 st.session_state['processing'] = False
-                # st.experimental_rerun()  # REMOVED
 
     # Show results and buttons if transcribed
     if st.session_state.get('transcribed', False):
@@ -488,7 +493,7 @@ if audio_ready:
             inputs_df = pd.DataFrame([st.session_state['submission_data']])
             inputs_path = os.path.join(tmpdir, "inputs.csv")
             inputs_df.to_csv(inputs_path, index=False)
-            audio_path = os.path.join(tmpdir, "audio.wav")
+            audio_path = os.path.join(tmpdir, "audio.webm")
             with open(audio_path, "wb") as f:
                 f.write(st.session_state['audio_bytes_to_save'])
             transcript_path = os.path.join(tmpdir, "transcript.txt")
@@ -509,7 +514,6 @@ if audio_ready:
         submit_btn = st.button("Submit to Database", disabled=st.session_state['processing'])
         if submit_btn:
             st.session_state['processing'] = True
-            # st.experimental_rerun()  # REMOVED
         if st.session_state['processing'] and not st.session_state.get('submitted', False):
             with st.spinner("Saving submission to the database..."):
                 insert_submission(engine, st.session_state["submission_data"], st.session_state["audio_bytes_to_save"])
@@ -519,7 +523,6 @@ if audio_ready:
             st.session_state['transcribed'] = False
             st.session_state['submission_data'] = None
             st.session_state['audio_bytes_to_save'] = None
-            st.experimental_rerun()
 else:
     st.info("Please record or upload an audio file to enable transcription and points calculation.")
 

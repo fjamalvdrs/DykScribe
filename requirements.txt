@@ -2,5 +2,5 @@ streamlit
 pandas
 sqlalchemy
 openai
-st_audiorec
-pyodbc 
+pyodbc
+streamlit_js_eval 
