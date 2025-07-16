@@ -3,7 +3,6 @@ import pandas as pd
 import tempfile
 import os
 import zipfile
-from datetime import datetime
 import re
 import logging
 from utils.db import get_engine
