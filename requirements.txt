@@ -3,4 +3,4 @@ pandas
 sqlalchemy
 openai
 pyodbc
-streamlit_js_eval 
+st-audiorec 
