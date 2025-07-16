@@ -1,0 +1,6 @@
+streamlit
+pandas
+sqlalchemy
+openai
+st_audiorec
+pyodbc 

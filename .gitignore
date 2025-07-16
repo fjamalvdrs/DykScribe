@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.env
+secrets.toml
+*.key
+.env
+.secrets.toml
+.DS_Store
+.vscode/
+.idea/
+*.db
+*.sqlite3
+*.log
+*.bak
+*.swp
+*.swo
+*.egg-info/ 
