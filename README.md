@@ -36,3 +36,6 @@ DykScribe is a streamlined QA and information capture form for Van Dyk users. It
 
 ## Contact
 For help, contact Faizan: [FJamal@vdrs.com](mailto:FJamal@vdrs.com) 
+
+## Author
+Ajith Srikanth
