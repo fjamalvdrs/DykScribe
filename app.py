@@ -311,8 +311,8 @@ if equipment_type and equipment_type.strip():
         # Get the default values for the selected model
         spec_df = get_model_specs(manufacturer, equipment_type, model)
         if not spec_df.empty:
-            default_spec2 = spec_df.at[0, "Specifications2"]
-            default_spec3 = spec_df.at[0, "Specifications3"]
+            default_spec2 = None  # Length should be empty by default
+            default_spec3 = None  # Width should be empty by default
         else:
             default_spec2 = default_spec3 = None
 
@@ -320,13 +320,13 @@ if equipment_type and equipment_type.strip():
         spec2 = st.selectbox(
             spec2_label,
             spec2_options,
-            index=spec2_options.index(default_spec2) if default_spec2 in spec2_options and spec2_options else 0
+            index=0 if spec2_options else 0
         )
         st.markdown("<span style='font-size: 0.85em; color: #888;'>Select the value for Specifications 3. This option depends on your previous selections.</span>", unsafe_allow_html=True)
         spec3 = st.selectbox(
             spec3_label,
             spec3_options,
-            index=spec3_options.index(default_spec3) if default_spec3 in spec3_options and spec3_options else 0
+            index=0 if spec3_options else 0
         )
     else:
         spec2 = spec3 = None
@@ -336,7 +336,7 @@ if equipment_type and equipment_type.strip():
     notes = st.text_area("Remark or Additional Info")
 
     # --- Tabs for Transcript/Output and Audio (Mutual Exclusivity, Hide Instead of Disable) ---
-    tabs = st.tabs(["Transcript / Output", "Audio"])
+    tabs = st.tabs(["Type Out", "Audio"])
 
     qa_text = st.session_state.get('qa_text', '').strip()
     min_audio_length = 1000
@@ -374,7 +374,7 @@ if equipment_type and equipment_type.strip():
     audio_bytes_to_save = wav_audio_data if (wav_audio_data is not None and len(wav_audio_data) > min_audio_length) else (file_bytes if (file_bytes is not None and len(file_bytes) > min_audio_length) else None)
 
     with tabs[0]:
-        st.subheader("Transcript / Output")
+        st.subheader("Type Out")
         st.markdown("""
         - You can either type your Q&A in the required format below, or
         - Use the Audio tab to record/upload audio and auto-generate the transcript here.
