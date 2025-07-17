@@ -9,6 +9,7 @@ from utils.db import get_engine
 from utils.ai import get_openai_client
 import base64
 from st_audiorec import st_audiorec
+import datetime
 
 # --- Session State Initialization ---
 if 'processing' not in st.session_state:
@@ -354,7 +355,7 @@ if audio_ready:
                     "Specifications2": spec2,
                     "Specifications3": spec3,
                     "Notes": notes,
-                    "Timestamp": datetime.now().isoformat()
+                    "Timestamp": datetime.datetime.now().isoformat()
                 }
                 inputs_df = pd.DataFrame([inputs])
                 inputs_path = os.path.join(tmpdir, "inputs.csv")
